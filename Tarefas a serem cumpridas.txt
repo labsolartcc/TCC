@@ -1,0 +1,53 @@
+ -------------------------Primeira parte do programa---------------------
+ *** Colocar a faixa certa de inversores dado potência. (Olhar listas)	
+	obs:faixa de inversores a ser determinada pela potência do painel escolhido?! (para refletir)
+	se sim colocar uma parte a mais para o usuário e escolher antes o número de painéis.
+--------------------------OK-----------------------------------> Primeira parte do programa ok!
+
+-------------------------------------Segunda Parte---------------------------------------------
+
+(Em execução)
+***Ajustar paineis ao inversor escolhido -----> Opções: Testar pela máxima corrente (caso não seja possível)
+							Testar pela máxima tensão
+							Testar pela mínima tensão e corrente (e vice-versa trocando max e min)
+
+
+parei na linha 687 -> Entender e elaborar um novo método para fazer os arranjos
+
+***Problema na potencia máxima do arranjo que não corresponde ao do inversor
+
+				
+ - Selecionar adequadamente o número de paineís para o dimensionamento dado a potência. (Otimizar o retorno)(Bruno falou de algum algoritimo de otimização)
+ - Dar refresh caso o dimensionamento não seja possível....
+
+-----------------------------------------Terceira Parte---------------------------------------------
+- Exportar para PDF (https://stackoverflow.com/questions/18191893/generate-pdf-from-html-in-div-using-javascript)
+	-> Criar textos adequados para a exportação!
+
+---------------------Quarta parte-------------------------------------
+
+
+Otimização de custo:
+-Buscar maior VPL
+-Variar o numero de paineis(algoritimo exaustivo)
+
+
+-Buscar bibliotecas para plotagem!
+
+Bugs: 	Corrigir bug dos inversores. (refresh para nova tentativa)
+      	Looping inválido - Com relação ao retorno do investimento
+	TMA na aba de investimentos fica dividida por 100
+      
+
+
+TCC - lucas -> Dados do lucas de análise de investimentos
+
+Selic
+
+Tarifa branca 
+
+Como estão dispostos os dados no Inmet: http://www.inmet.gov.br/portal/index.php?r=estacoes/estacoesAutomaticas
+
+
+
+LISTA dos Inversores Excel: https://docs.google.com/spreadsheets/d/1VrtWRbAuFF7Y2JEsCpqG_v3alMttirOwQB6PkuI9rVc/edit#gid=0
