@@ -1,53 +1,88 @@
  -------------------------Primeira parte do programa---------------------
- *** Colocar a faixa certa de inversores dado potÍncia. (Olhar listas)	
-	obs:faixa de inversores a ser determinada pela potÍncia do painel escolhido?! (para refletir)
-	se sim colocar uma parte a mais para o usu·rio e escolher antes o n˙mero de painÈis.
+ *** Colocar a faixa certa de inversores dado potÔøΩncia. (Olhar listas)
+	obs:faixa de inversores a ser determinada pela potÔøΩncia do painel escolhido?! (para refletir)
+	se sim colocar uma parte a mais para o usuÔøΩrio e escolher antes o nÔøΩmero de painÔøΩis.
 --------------------------OK-----------------------------------> Primeira parte do programa ok!
 
 -------------------------------------Segunda Parte---------------------------------------------
 
-(Em execuÁ„o)
-***Ajustar paineis ao inversor escolhido -----> OpÁıes: Testar pela m·xima corrente (caso n„o seja possÌvel)
-							Testar pela m·xima tens„o
-							Testar pela mÌnima tens„o e corrente (e vice-versa trocando max e min)
+(Em execuÔøΩÔøΩo)
+***Ajustar paineis ao inversor escolhido -----> OpÔøΩÔøΩes: Testar pela mÔøΩxima corrente (caso nÔøΩo seja possÔøΩvel)
+							Testar pela mÔøΩxima tensÔøΩo
+							Testar pela mÔøΩnima tensÔøΩo e corrente (e vice-versa trocando max e min)
 
 
-parei na linha 687 -> Entender e elaborar um novo mÈtodo para fazer os arranjos
+parei na linha 687 -> Entender e elaborar um novo mÔøΩtodo para fazer os arranjos
 
-***Problema na potencia m·xima do arranjo que n„o corresponde ao do inversor
+***Problema na potencia mÔøΩxima do arranjo que nÔøΩo corresponde ao do inversor
 
-				
- - Selecionar adequadamente o n˙mero de paineÌs para o dimensionamento dado a potÍncia. (Otimizar o retorno)(Bruno falou de algum algoritimo de otimizaÁ„o)
- - Dar refresh caso o dimensionamento n„o seja possÌvel....
+
+ - Selecionar adequadamente o nÔøΩmero de paineÔøΩs para o dimensionamento dado a potÔøΩncia. (Otimizar o retorno)(Bruno falou de algum algoritimo de otimizaÔøΩÔøΩo)
+ - Dar refresh caso o dimensionamento nÔøΩo seja possÔøΩvel....
 
 -----------------------------------------Terceira Parte---------------------------------------------
 - Exportar para PDF (https://stackoverflow.com/questions/18191893/generate-pdf-from-html-in-div-using-javascript)
-	-> Criar textos adequados para a exportaÁ„o!
+	-> Criar textos adequados para a exportaÔøΩÔøΩo!
+
 
 ---------------------Quarta parte-------------------------------------
 
 
-OtimizaÁ„o de custo:
--Buscar maior VPL
--Variar o numero de paineis(algoritimo exaustivo)
+OtimizaÔøΩÔøΩo de custo:
+-Buscar maior VPL - OK!
+-Variar o numero de paineis(algoritimo exaustivo) ok!
+-Buscar bibliotecas para plotagem! OK!
 
 
--Buscar bibliotecas para plotagem!
+
+--------------> Colocar mais funÔøΩÔøΩes para a busca do VPL
+
 
 Bugs: 	Corrigir bug dos inversores. (refresh para nova tentativa)
-      	Looping inv·lido - Com relaÁ„o ao retorno do investimento
+      	Looping invÔøΩlido - Com relaÔøΩÔøΩo ao retorno do investimento
 	TMA na aba de investimentos fica dividida por 100
-      
 
 
-TCC - lucas -> Dados do lucas de an·lise de investimentos
+
+
+
+
+
+
+
+OBS:
+TCC - lucas -> Dados do lucas de anÔøΩlise de investimentos
 
 Selic
 
-Tarifa branca 
+Tarifa branca
 
-Como est„o dispostos os dados no Inmet: http://www.inmet.gov.br/portal/index.php?r=estacoes/estacoesAutomaticas
+Como estÔøΩo dispostos os dados no Inmet: http://www.inmet.gov.br/portal/index.php?r=estacoes/estacoesAutomaticas
 
 
 
 LISTA dos Inversores Excel: https://docs.google.com/spreadsheets/d/1VrtWRbAuFF7Y2JEsCpqG_v3alMttirOwQB6PkuI9rVc/edit#gid=0
+
+
+
+http://www.ufjf.br/biblioteca/servicos/normalizacao-2/ -> modelo para o TCC
+
+
+https://labsolartcc.github.io/TCC/      LINK
+
+
+
+
+
+DÔøΩvidas:
+
+- SerÔøΩ necessÔøΩrio considerar o ICMS?
+- Taxa de decaimento para cada painel?
+
+
+
+
+
+Os atributos ``potencia'', ``Vmax'', ``Vmin'', ``correnteSC'', s√£o os par√¢metros el√©tricos de um painel, e, respectivamente, representam sua pot√™ncia, a tens√£o m√°xima produzida, a tens√£o m√≠nima e a corrente de curto-circuito, par√¢metros necess√°rios para dimensionar o n√∫mero de pain√©is em uma usina e como estes ser√£o ligados - associa√ß√£o s√©rie, paralelo ou mista\cite{manualcepel}, de forma que atendam aos requisitos el√©tricos do inversor. J√° os atributos ``nome'', ``pre√ßo'' e ``imagem'', dizem respeito ao modelo do painel, seu pre√ßo -  dado necess√°rio para a an√°lise financeira - e ao diret√≥rio do arquivo de imagem do painel.
+
+O mesmo princ√≠pio foi utilizado para o inversor, contudo, s√≥ os par√¢metros el√©tricos de entrada constituiram os atributos, pois somente estes eram relevantes dimensionar o sistema. Dessa forma, o atributo ``potMaxEntrada'' representa a m√°xima pot√™ncia suportada na entrada do inversor; ``VmpptMin'' e ``VmpptMax''  formam o intervalo de tens√£o para ativa√ß√£o do seguidor de m√°xima pot√™ncia; ``correnteMax'' e ``VMaxEntrada'' s√£o os limites m√°ximos de corrente e de tens√£o suportados; ``VMinStart'' √© a tens√£o m√≠nima para a opera√ß√£o deste equipamento. Os campos ``pre√ßo" e ``imagem" seguem o padr√£o estabelecido para o painel.
