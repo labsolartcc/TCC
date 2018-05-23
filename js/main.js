@@ -136,19 +136,14 @@ var otimizacao = {    "tma":0,               //taxa mínima de atratividade - Po
                       "arrayEnergia":[],
                       "arrayTarifa":[],
                       "arrayCaixa":[],
-                      "arrayTodosCaixas":[],
                       "arrayCaixaPresente":[],
-                      "arrayTodosCaixasPresente":[],
                       "tarifa":0.8,            //Tarifa de energia - R$/kWh - 0.80
                       "ajusteTarifa":0,      //Taxa de correção anual da tarida de energia 0.03 - 3%
                       "payback":[],           //Payback simples
-                      "todosPayback":[],
                       "paybackDescontado":[], //Payback Descontado
-                      "todosPaybackDescontado":[],
                       "vpl":[],               //Valor presente líquido
                       "todosVpl":[],
                       "tir":[],               //Taxa Interna de Retorno
-                      "todosTir":[],
                       "custoPaineis":0,               //Custo total dos paineis
                       "custoInversor":0,             //Custo total dos Inversores
                       "precoCabeamento":0,          //preço da cabeamento em R$/kW;
@@ -521,6 +516,14 @@ function exportarInvestimento(){
   doc.save('investimento.pdf')
 }
 
+function exportarArranjo(){
+  var doc = new jsPDF()
+  doc.setFontSize(14)
+  var conteudo =  document.getElementById("arranjo-pdf").textContent;
+  doc.text("Arranjo dos panéis \n\nPainéis em série:"+arranjo.numSerie+" \nStrings em paralelo: "+arranjo.numParalelo+ "\nPotência do arranjo: "+sistema.potencia+ "W\nVmax do arranjo FV: "+arranjo.Vmax.toFixed(2)+"V\nVmin do arranjo FV: "+arranjo.Vmin.toFixed(2)+"V\nCorrente do arranjo FV: "+painel.correnteSC*arranjo.numParalelo+"A \n\n\nPainel: "+painel.nome+"\n\nPotência do painel: "+painel.potencia+" W \nTensão máxima: "+painel.Vmax+"V\nTensão mínima: "+painel.Vmin+ "V\nCorrente de curto circuito: "+painel.correnteSC+ "A\n\n\nInversor: "+inversor.nome+"\n\nPotência máxima de entrada: "+inversor.potMaxEntrada+"W \nTensão máxima de entrada: "+inversor.VMaxEntrada+"V\nFaixa MPPT: "+inversor.VmpptMin+"V ~ "+ inversor.VmpptMax+"V\nTensão mínima para inicialização: "+inversor.VMinStart+"V\nCorrente máxima de entrada: "+inversor.correnteMax+"A " ,20,20)
+  //doc.text(conteudo,30,30)
+  doc.save('arranjo.pdf')
+}
 
 //escolhe o painel selecionado no dropdown menu
 function choosePainel(painelName){
@@ -613,6 +616,14 @@ function getInputs(){
 
   //Número de inversores inicial
     sistema.numInversores = 1;
+    //MUDAR POTINTEIRA -> TRANSFORMAR EM POTENCIA NECESSARIA
+    //E TRANSFORMAR EM POTENCIA PARA CALCULO
+    //-------NESTE CASO SE potNecessaria > 10000 O SISTEMA USARÁ 3 INVERSORES MONOFÁSICOS---------//
+    if(potInteira >= 10000){
+      potInteira = potInteira/3;
+      sistema.numInversores = 3;
+      console.log("Potencia necessaria: "+potInteira);
+    }
 
   //-------------Criando Array com possíveis Inversores dentro de um intervalo determinado-------//
     var limiteInferior = sistema.potNecessaria-intervalo;
@@ -657,8 +668,398 @@ investimento.custoCabeamento = document.getElementById("preco-cabeamento").value
 investimento.custoEstrutura = document.getElementById("preco-estrutura").value;
 investimento.custoCabeamento = investimento.custoCabeamento/1;
 investimento.custoEstrutura = investimento.custoEstrutura/1;
-investimento.decaimentoPainel = 0.008;
-investimento.ajusteTarifa = 0.03;
+  //calculo do numero de paineis
+  numPaineisDecimal = (potInteira / painel.potencia) -0.5;
+  sistema.numPaineis =Math.round(numPaineisDecimal);
+  sistema.potencia = sistema.numPaineis*painel.potencia;
+
+  if(inversor.potMaxEntrada<potInteira){
+    numPaineisDecimal = (inversor.potMaxEntrada / painel.potencia)-0.5;
+    sistema.numPaineis =Math.round(numPaineisDecimal);
+    sistema.potencia = sistema.numPaineis*painel.potencia;
+    alert("bla");
+  }
+
+
+  //-----------FIM------///
+
+  console.log("------------------------------------------");
+  console.log("Verificando arranjo, primeira tentativa...");
+
+  //-------------------CASAMENTO-------------------//
+  //**implementar numero de paineis serie e paralelo
+  //**implementar correntes do arranjo
+
+//------------------INÍCIO DA PRIMEIRA TENTATIVA DE FORMAR O ARRANJO-------------------///
+  //combinando o arranjo em série e verificando os requisitos tecnicos do Inversor escolhido
+  arranjo.numSerie = sistema.numPaineis;
+  arranjo.Vmax = arranjo.numSerie*painel.Vmax;
+  arranjo.Vmin = arranjo.numSerie*painel.Vmin;
+  arranjo.Imax = arranjo.numParalelo*painel.correnteSC;
+
+  //Verifica a faixa MPPT
+  if(arranjo.Vmax<inversor.VmpptMax && arranjo.Vmin>inversor.VmpptMin){
+    console.log("teste1:MPPT ativo! ");
+    sistema.MPPTativo = true;
+  }
+
+  //Verifica se a potência do arranjo é menor que a potência de entrada do inversor
+  if(inversor.potMaxEntrada>=sistema.potencia){
+      console.log("teste1:Potencia de entrada do Inversor ok!");
+      sistema.condicaopotMaxEntrada = true;
+  }
+
+  //Verifica os limites de tensão e corrente do Inversor com o arranjo
+  if(arranjo.Vmin>inversor.VMinStart){
+    console.log("teste1:Tensão de inicialização ok!");
+    sistema.condicaoVmin = true;
+  }
+  if(arranjo.Vmax<inversor.VMaxEntrada){
+    console.log("teste1:Vmax do arranjo ok!");
+    sistema.condicaoVmax = true;
+  }
+  if(arranjo.Imax<inversor.correnteMax){
+    console.log("teste1:Corrente de entrada do inversor ok!");
+    sistema.condicaoImax = true;
+  }
+
+  //verifica se todas as condições anteriores foi atendida
+  if(sistema.MPPTativo && sistema.condicaopotMaxEntrada && sistema.condicaoVmin && sistema.condicaoVmax && sistema.condicaoImax ){
+    sistema.condicao = true;
+    console.log("teste1:casamento ok!");
+  }
+
+
+//------------------FIM DA PRIMEIRA TENTATIVA DE FORMAR O ARRANJO-------------------///
+  arranjo.numParalelo = 1;
+
+
+  //------------------INÍCIO DA SEGUNDA TENTATIVA DE FORMAR O ARRANJO-------------------///
+  //combinando o arranjo em série e paralelo, caso a primeira tentativa, de ligá-los em série seja falha
+  //zerando as condições para testá-las novamente
+  if(sistema.condicao == false){
+    sistema.condicaoImax = false;
+    sistema.condicaoVmax = false;
+    sistema.condicaoVmin = false;
+    sistema.MPPTativo = false;
+    sistema.condicaopotMaxEntrada = false;
+
+    console.log("Verificando arranjo, segunda tentativa...");
+    // setando a menor tensão do inversor
+    if(inversor.VMinStart>inversor.VmpptMin){
+      inversor.VmpptMin = inversor.VMinStart;
+    }
+
+    //teste************************************************AQUIIIII
+    // if(inversor.potMaxEntrada<potInteira){
+    //   numPaineisDecimal = inversor.potMaxEntrada / painel.potencia;
+    //   sistema.numPaineis =Math.round(numPaineisDecimal);
+    //   sistema.potencia = sistema.numPaineis*painel.potencia;
+    //   alert("bla");
+    // }
+    //-------------Determinação do arranjo---------------Estudar----------//
+    //Determina o número de painéis em série do Arranjo
+    //Nesta tentativa será baseada em atingir o nível mínimo de tensão do inversor
+    arranjo.numSerie = Math.round( (inversor.VmpptMin/painel.Vmin) - 0.5) + 1;
+    arranjo.numParalelo = Math.round(sistema.numPaineis/arranjo.numSerie);
+    //Afirma que é necessário uma string de painéis
+    if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+        arranjo.numParalelo = 1;
+    }
+
+    //diferença entre a potencia do arranjo até agora e a potencia necessaria(ou)pontencia máxima de entrada do inversor
+    //para isso será criada uma variavel que armazena a menor entre a potencia necessaria(ou)potencia máxima de entrada do inversor escolhido
+    var menorPotencia = 0;
+    if(potInteira>=inversor.potMaxEntrada){
+      menorPotencia = inversor.potMaxEntrada;
+    }
+    if(potInteira<inversor.potMaxEntrada){
+      menorPotencia = potInteira;
+    }
+    //Criada variável potenciaTemporaria para ajustar o numero de paineis do arranjo
+    var potenciaTemporaria = (arranjo.numSerie*arranjo.numParalelo*painel.potencia);
+    var diferenca = potenciaTemporaria - menorPotencia;
+    diferenca = Math.abs(diferenca);
+
+    // verifica se a diferenca é maior que dois paineis e aproxima o arranjo para o limite superior de tensão do MPPT
+    if( diferenca > 2*painel.potencia ){
+      arranjo.numSerie = Math.round( (inversor.VmpptMax/painel.Vmax) - 0.5); //para cima
+      arranjo.numParalelo = Math.round(sistema.numPaineis/arranjo.numSerie);
+      if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+          arranjo.numParalelo = 1;
+      }
+      potenciaTemporaria = (arranjo.numSerie*arranjo.numParalelo*painel.potencia);
+      diferenca = potenciaTemporaria - potInteira;
+      diferenca = Math.abs(diferenca);
+    }
+
+    // verifica se a diferenca é maior que dois paineis novamente e aproxima para baixo
+    if( diferenca > 2*painel.potencia ){
+      // aproximando para baixo
+      arranjo.numSerie = Math.round( (inversor.VmpptMin/painel.Vmin) - 0.5) + 1;
+      arranjo.numParalelo = Math.round(sistema.numPaineis/arranjo.numSerie);
+      if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+          arranjo.numParalelo = 1;
+      }
+    }
+
+    //-------------FIM da Determinação do arranjo---------------Estudar----------//
+
+    arranjo.Imax = arranjo.numParalelo*painel.correnteSC;
+    arranjo.Vmax = arranjo.numSerie*painel.Vmax;
+    arranjo.Vmin = arranjo.numSerie*painel.Vmin;
+
+    if(arranjo.Vmax<inversor.VmpptMax && arranjo.Vmin>inversor.VmpptMin){
+      console.log("teste2:MPPT ativo!");
+      sistema.MPPTativo = true;
+    }
+    else {
+      console.log("teste2: Erro! Não está na faixa do MPPT!");
+    }
+
+    if(inversor.potMaxEntrada>=sistema.potencia){
+      console.log("teste2:Potencia de entrada do Inversor ok!");
+      sistema.condicaopotMaxEntrada = true;
+    }
+    else {
+      console.log("teste2: Erro!Potencia do arranjo maior que o de entrada do Inversor!");
+    }
+
+    if(arranjo.Vmin>=inversor.VMinStart){
+      console.log("teste2:Tensão de inicialização ok!");
+      sistema.condicaoVmin = true;
+    }
+    else {
+      console.log("teste2: Erro!Tensão do arranjo menor que a tensão de inicialização do inversor!");
+    }
+    if(arranjo.Vmax<inversor.VMaxEntrada){
+      console.log("teste2:Vmax do arranjo ok!");
+      sistema.condicaoVmax = true;
+    }
+    else {
+      console.log("teste2: Erro!Tensão do arranjo maior que a tensão máxima de entrada do inversor!");
+    }
+
+    if(arranjo.Imax<inversor.correnteMax){
+      console.log("teste2:Corrente de entrada do inversor ok!");
+      sistema.condicaoImax = true;
+    }
+    else {
+      console.log("teste2: Erro!Corrente do arranjo maior que a corrente máxima de entrada do inversor!");
+    }
+    if(sistema.MPPTativo && sistema.condicaopotMaxEntrada && sistema.condicaoVmin && sistema.condicaoVmax && sistema.condicaoImax ){
+      sistema.condicao = true;
+      console.log("teste2:casamento ok!");
+    }
+    if(!(sistema.MPPTativo && sistema.condicaopotMaxEntrada && sistema.condicaoVmin && sistema.condicaoVmax && sistema.condicaoImax )){
+      alert("Não foi possível fazer o dimensionamento com o painel selecionado!");
+      if(!sistema.MPPTativo){
+        alert("Fora da faixa do MPPT");
+      }
+      if(!sistema.condicaopotMaxEntrada){
+        alert("Potência do arranjo maior que a de entrada do Inversor");
+      }
+      if(!sistema.condicaoVmin){
+        alert("Tensão do arranjo menor que a tensão de entrada do Inversor");
+      }
+      if(!sistema.condicaoVmax){
+        alert("Tensão do arranjo maior que a tensão de entrada do Inversor");
+      }
+      if(!sistema.condicaoImax){
+        alert("Corrente do arranjo maior que a corrente de entrada do Inversor");
+      }
+    }
+
+  }
+  //------------------FIM DA SEGUNDA TENTATIVA DE FORMAR O ARRANJO-------------------///
+
+  //------------------INÍCIO DA Terceira TENTATIVA DE FORMAR O ARRANJO-------------------///
+  //combinando o arranjo em série e paralelo, caso a primeira tentativa, de ligá-los em série seja falha
+  //zerando as condições para testá-las novamente
+  if(sistema.condicao == false){
+    sistema.condicaoImax = false;
+    sistema.condicaoVmax = false;
+    sistema.condicaoVmin = false;
+    sistema.MPPTativo = false;
+    sistema.condicaopotMaxEntrada = false;
+
+    console.log("Verificando arranjo, terceira tentativa...");
+    // setando a menor tensão do inversor
+    if(inversor.VMinStart>inversor.VmpptMin){
+      inversor.VmpptMin = inversor.VMinStart;
+    }
+
+    //-------------Determinação do arranjo------------------------//
+    //Determina o número de painéis em série do Arranjo
+    //Nesta tentativa será baseada em atingir o nível mínimo de correte do inversor
+    arranjo.numParalelo = Math.round( (inversor.correnteMax/painel.correnteSC) - 0.5);
+    arranjo.numSerie = Math.round(sistema.numPaineis/arranjo.numParalelo);
+    //Afirma que é necessário uma string de painéis
+    if( Math.round(sistema.numPaineis/arranjo.numParalelo)<1 ){
+        arranjo.numSerie = 1;
+    }
+
+    //diferença entre a potencia do arranjo até agora e a potencia necessaria(ou)pontencia máxima de entrada do inversor
+    //para isso será criada uma variavel que armazena a menor entre a potencia necessaria(ou)potencia máxima de entrada do inversor escolhido
+    var menorPotencia = 0;
+    if(potInteira>=inversor.potMaxEntrada){
+      menorPotencia = inversor.potMaxEntrada;
+    }
+    if(potInteira<inversor.potMaxEntrada){
+      menorPotencia = potInteira;
+    }
+    //Criada variável potenciaTemporaria para ajustar o numero de paineis do arranjo
+    var potenciaTemporaria = (arranjo.numSerie*arranjo.numParalelo*painel.potencia);
+    var diferenca = potenciaTemporaria - menorPotencia;
+    diferenca = Math.abs(diferenca);
+
+    // verifica se a diferenca é maior que dois paineis e aproxima o arranjo para o limite superior de tensão do MPPT
+    if( diferenca > 2*painel.potencia ){
+      arranjo.numParalelo = Math.round( (inversor.correnteMax/painel.correnteSC) - 0.5); //para cima
+      arranjo.numSerie = Math.round(sistema.numPaineis/arranjo.numParalelo);
+      if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+          arranjo.numSerie = 1;
+      }
+      potenciaTemporaria = (arranjo.numSerie*arranjo.numParalelo*painel.potencia);
+      diferenca = potenciaTemporaria - potInteira;
+      diferenca = Math.abs(diferenca);
+    }
+
+    // verifica se a diferenca é maior que dois paineis novamente e aproxima para baixo
+    if( diferenca > 2*painel.potencia ){
+      // aproximando para baixo
+      arranjo.numParalelo = Math.round( (inversor.correnteMax/painel.correnteSC) - 0.5) + 1;
+      arranjo.numSerie = Math.round(sistema.numPaineis/arranjo.numParalelo);
+      if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+          arranjo.numParalelo = 1;
+      }
+    }
+
+    //-------------FIM da Determinação do arranjo-------------------------//
+
+    arranjo.Imax = arranjo.numParalelo*painel.correnteSC;
+    arranjo.Vmax = arranjo.numSerie*painel.Vmax;
+    arranjo.Vmin = arranjo.numSerie*painel.Vmin;
+
+    if(arranjo.Vmax<inversor.VmpptMax && arranjo.Vmin>inversor.VmpptMin){
+      console.log("teste3:MPPT ativo!");
+      sistema.MPPTativo = true;
+    }
+    else {
+      console.log("teste3: Erro! Não está na faixa do MPPT!");
+    }
+
+    if(inversor.potMaxEntrada>=sistema.potencia){
+      console.log("teste3:Potencia de entrada do Inversor ok!");
+      sistema.condicaopotMaxEntrada = true;
+    }
+    else {
+      console.log("teste3: Erro!Potencia do arranjo maior que o de entrada do Inversor!");
+    }
+
+    if(arranjo.Vmin>=inversor.VMinStart){
+      console.log("teste3:Tensão de inicialização ok!");
+      sistema.condicaoVmin = true;
+    }
+    else {
+      console.log("teste3: Erro!Tensão do arranjo menor que a tensão de inicialização do inversor!");
+    }
+    if(arranjo.Vmax<inversor.VMaxEntrada){
+      console.log("teste3:Vmax do arranjo ok!");
+      sistema.condicaoVmax = true;
+    }
+    else {
+      console.log("teste3: Erro!Tensão do arranjo maior que a tensão máxima de entrada do inversor!");
+    }
+
+    if(arranjo.Imax<inversor.correnteMax){
+      console.log("teste3:Corrente de entrada do inversor ok!");
+      sistema.condicaoImax = true;
+    }
+    else {
+      console.log("teste3: Erro!Corrente do arranjo maior que a corrente máxima de entrada do inversor!");
+    }
+    if(sistema.MPPTativo && sistema.condicaopotMaxEntrada && sistema.condicaoVmin && sistema.condicaoVmax && sistema.condicaoImax ){
+      sistema.condicao = true;
+      console.log("teste3:casamento ok!");
+    }
+    if(!(sistema.MPPTativo && sistema.condicaopotMaxEntrada && sistema.condicaoVmin && sistema.condicaoVmax && sistema.condicaoImax )){
+      alert("Não foi possível fazer o dimensionamento com o painel selecionado!");
+      if(!sistema.MPPTativo){
+        alert("Fora da faixa do MPPT");
+      }
+      if(!sistema.condicaopotMaxEntrada){
+        alert("Potência do arranjo maior que a de entrada do Inversor");
+      }
+      if(!sistema.condicaoVmin){
+        alert("Tensão do arranjo menor que a tensão de entrada do Inversor");
+      }
+      if(!sistema.condicaoVmax){
+        alert("Tensão do arranjo maior que a tensão de entrada do Inversor");
+      }
+      if(!sistema.condicaoImax){
+        alert("Corrente do arranjo maior que a corrente de entrada do Inversor");
+      }
+    }
+
+  }
+
+  //------------------FIM DA Terceira TENTATIVA DE FORMAR O ARRANJO-------------------///
+
+  // //-------------Determinação do arranjo---------------Estudar----------//
+  // //Determina o número de painéis em série do Arranjo
+  // //Nesta tentativa será baseada em atingir o nível mínimo de tensão do inversor
+  // arranjo.numSerie = Math.round( (inversor.VmpptMin/painel.Vmin) - 0.5) + 1;
+  // arranjo.numParalelo = Math.round(sistema.numPaineis/arranjo.numSerie);
+  // //Afirma que é necessário uma string de painéis
+  // if( Math.round(sistema.numPaineis/arranjo.numSerie)<1 ){
+  //     arranjo.numParalelo = 1;
+  // }
+
+var numeroDeInversores = 0;
+var numeroDePaineis = 0;
+  //Para o caso de pequenas potências -->>> Potencia Necessária < 533 W && (consumo - custo de disponibilidade) < 53
+  if( ((sistema.consumoMensal-sistema.disponibilidade) <= 57) || (sistema.numeroDePaineis<1) || potInteira<1000 ) {
+
+      painel = painel255;
+      inversor = inversor260;
+      numeroDePaineis = Math.round(numPaineisDecimal);
+      if(sistema.numeroDePaineis<1){
+        numeroDePaineis = 1;
+      }
+      numeroDeInversores = Math.round(potInteira / inversor.potMaxEntrada) ;
+      if(numeroDeInversores<1){
+        numeroDeInversores = 1;
+      }
+      if (numeroDePaineis>3 || numeroDeInversores>3 ) {
+        numeroDePaineis = 3;
+        numeroDeInversores = 3;
+      }
+      arranjo.numSerie = 1;
+      arranjo.numParalelo = 1;
+      sistema.numPaineis = numeroDePaineis;
+      sistema.numInversores = numeroDeInversores;
+      arranjo.Vmax = painel.Vmax;
+      arranjo.Vmin = painel.Vmin;
+      console.log("NUMERO DE PAINEIS: "+numeroDePaineis+" Num INVERSORES: "+numeroDeInversores+"max POT ENTRADA"+inversor.potMaxEntrada+"pOT INTEIRA"+potInteira);
+  }
+
+
+  //-----------Adequação Final-------------------------------//
+  //--------Determinação de Informações acerca do sistema FV: Arranjo, Custos, análise financeira ------//
+  sistema.numPaineis = arranjo.numSerie * arranjo.numParalelo*sistema.numInversores;
+  sistema.potencia   = sistema.numPaineis * painel.potencia;
+  sistema.precoTotal = sistema.numPaineis*painel.preco + inversor.preco;
+  investimento.custoPaineis = sistema.numPaineis*painel.preco;
+  investimento.custoInversor = sistema.numInversores*inversor.preco;
+  //investimento.custoCabeamento = sistema.potencia*investimento.precoCabeamento;
+  //investimento.custoEstrutura = sistema.potencia*investimento.precoEstrutura;
+  investimento.custoTotal = (investimento.custoPaineis + investimento.custoInversor +investimento.custoEstrutura + investimento.custoCabeamento);
+  sistema.energiaMensal    = sistema.potencia*sistema.HSP*sistema.TD*(30/1000);
+  sistema.energiaAnual    = sistema.potencia*sistema.HSP*sistema.TD*(365/1000);
+
+  investimento.decaimentoPainel = 0.008;
+  investimento.ajusteTarifa = 0.03;
 
 
   decaimentoModulos(investimento.decaimentoPainel,25);
@@ -670,12 +1071,21 @@ investimento.ajusteTarifa = 0.03;
   investimento.payback = payback(investimento.arrayCaixa.length-1,investimento.arrayCaixa);
   investimento.paybackDescontado = payback(investimento.arrayCaixaPresente.length-1,investimento.arrayCaixaPresente);
 
+  //Confere os resultados
+  document.getElementById("resultado").innerHTML =
+  "<br>--------------------SISTEMA----------------------------</br>"+
+  //"<br>Potência: "+sistema.potencia+" W</br>"+
+  "<br>Na faixa MPPT("+inversor.VmpptMin+"V - "+inversor.VmpptMax+" V): "+sistema.MPPTativo+"</br>"+
+  "<br>Sistema ok: "+sistema.condicao+"</br>" ;
+
 }
 
 //----- fim da função run() -----//
 
 function clean(){
-
+  // function(){
+  //   $("li").remove(".inv");
+  // };
   menorPotencia = 0;
   sistema.condicaopotMaxEntrada = false;
   sistema.potNecessaria = 0;
@@ -707,7 +1117,7 @@ function clean(){
   investimento.arrayEnergia = [];
   investimento.arrayTarifa = [];
   investimento.arrayCaixa = [];
-  investimento.tarifa = 0.0;            //Tarifa de energia - R$/kWh - 0.80
+  investimento.tarifa = 0.8;            //Tarifa de energia - R$/kWh - 0.80
   investimento.ajusteTarifa = 0;      //Taxa de correção anual da tarida de energia 0.03 - 3%
   investimento.payback=0;           //Payback simples
   investimento.paybackDescontado=0; //Payback Descontado
@@ -747,6 +1157,16 @@ function ajusteTarifa(taxa, numPeriodos){
 }
 
 
+// investimento.decaimentoPainel = 0.007;
+// investimento.ajusteTarifa = 0.03;
+// investimento.tma = 0.065;
+//
+// decaimentoModulos(0.007,25);
+// energiaGerada(1514,25);
+// ajusteTarifa(0.026,25);
+// investimento.arrayCaixa[0] = investimento.arrayCaixa[0]-14185;
+// investimento.tir = tir(investimento.arrayCaixa);
+// investimento.vpl = vpl(0.065,investimento.arrayCaixa);
 console.log(investimento.arrayDecaimento);
 console.log(investimento.arrayDecaimento.length);
 console.log(investimento.arrayEnergia);
@@ -772,26 +1192,21 @@ function vpl(taxa, montantes)
 {
     var ret = montantes[0];
     ret = montantes[0];
-      //otimizacao.arrayCaixaPresente[0] = montantes[0];
     for (var i=1; i<montantes.length; i++){
-      //  otimizacao.arrayCaixaPresente[i] = montantes[i] / Math.pow( (1.0 + taxa), i);
         ret += montantes[i] / Math.pow( (1.0 + taxa), i);
 
       }
-
     return ret;
 }
 
 function vplInvestimento(taxa, montantes)
 {
     var ret = montantes[0];
-    otimizacao.arrayCaixaPresente[0] = montantes[0];
+    investimento.arrayCaixaPresente[0] = montantes[0];
     for (var i=1; i<montantes.length; i++){
         ret += montantes[i] / Math.pow( (1.0 + taxa), i);
-        otimizacao.arrayCaixaPresente[i] = montantes[i] / Math.pow( (1.0 + taxa), i);
+        investimento.arrayCaixaPresente[i] = montantes[i] / Math.pow( (1.0 + taxa), i);
       }
-      console.log("alo "+otimizacao.arrayCaixaPresente);
-      otimizacao.arrayTodosCaixasPresente.push(otimizacao.arrayCaixaPresente);
     return ret;
 }
 
@@ -890,6 +1305,11 @@ var igh = 0;
 $("#go1").click(function(){
     $("#div3").fadeIn("slow");
 
+    //Pensar em outra solução
+    // if(igh>0){
+    //   $("li").remove(".inv");
+    // }
+    // igh++;
 });
 
 
@@ -898,7 +1318,65 @@ $("#go").click(function(){
     $("#div2").fadeIn("slow");
 });
 
+$("#button-tutorial").click(function(){
+  $("#sistema-intro").html("<br>Para projetar o sistema é necessário saber o consumo de energia e a quantidade de energia solar no local da instalação. Dessa maneira, utilizaremos os valores do consumo mensal médio e da irradiação.</br>");
+  $("#sistema-intro2").html("<br>Potência necessária = [(Consumo média diária) / (Taxa de desempenho do sistema)] / (horas de sol pleno)</br> <br>Potência necessária = ("+(((sistema.consumoMensal-sistema.disponibilidade)/30)*1000).toFixed(2)+"/"+sistema.TD+") / ("+sistema.HSP+") = "+sistema.potNecessaria.toFixed(2)+"W </br>");
 
+
+});
+
+$("#button-sistema").click(function(){
+  $("#sistema-intro").html("<br>Para projetar o sistema é necessário saber o consumo de energia e a quantidade de energia solar no local da instalação. Dessa maneira, utilizaremos os valores do consumo mensal médio e da irradiação.</br>");
+  $("#sistema-intro2").html("<br>Potência necessária = [(Consumo média diária) / (Taxa de desempenho do sistema)] / (horas de sol pleno) = ("+(((sistema.consumoMensal-sistema.disponibilidade)/30)*1000).toFixed(2)+"/"+sistema.TD+") / ("+sistema.HSP+") = "+sistema.potNecessaria.toFixed(2)+"W </br>");
+  $("#consumo-mensal").html("<br>Consumo Mensal: "+sistema.consumoMensal+" kWh </br>");
+  $("#consumo-diario").html("<br>Consumo médio diário: "+sistema.consumoDiario.toFixed(2)+ "Wh </br>");
+  $("#horas-de-sol").html("<br>Horas de Sol Pleno: "+sistema.HSP+" kWh/m².dia </br>");
+  if(sistema.numInversores==1){
+    $("#pot-necessaria").html("<br>Potência necessária para esse consumo: "+potInteira.toFixed(2)+"W</br>");
+  }
+  if(sistema.numInversores==2){
+    $("#pot-necessaria").html("<br>Potência necessária para esse consumo: "+potInteira.toFixed(2)+"W</br>");
+  }
+  if(sistema.numInversores==3){
+    potInteira = potInteira*3;
+    if(inversor.nome=="Microinversor i-Energy GT260"){
+      potInteira = potInteira/3;
+    }
+    $("#pot-necessaria").html("<br>Potência necessária para esse consumo: "+potInteira.toFixed(2)+"W</br>");
+  }
+  $("#pot-sistema").html("<br>Potência do sistema: "+sistema.potencia.toFixed(2)+"W</br>");
+});
+
+$("#button-arranjo").click(function(){
+  $("#numero-paineis").html("<br>Número total de painéis: "+sistema.numPaineis+"</br>");
+  if(sistema.numInversores==1){
+    $("#numero-inversores1").html("<br>Será necessário "+sistema.numInversores+" inversor, no qual deverá ser conectado em sua entrada o seguinte arranjo de painéis:</br>");
+    $("#numero-inversores3").html("");
+  }
+  if(sistema.numInversores>1){
+    $("#numero-inversores3").html("<br>Serão necessários "+sistema.numInversores+" inversores. Para cada inversor deverá ser conectado na entrada o seguinte arranjo de painéis:</br>");
+    $("#numero-inversores1").html("");
+  }
+  $("#paineis-serie").html("<br>Painéis em série: "+ arranjo.numSerie+"</br>");
+  $("#paineis-paralelo").html("<br>Strings em paralelo: "+arranjo.numParalelo+"</br>");
+  $("#pot-arranjo").html("<br>Potência do arranjo: "+sistema.potencia+" W</br>");
+  $("#v-max").html("<br>Vmax do arranjo FV: "+arranjo.Vmax.toFixed(2)+"V</br>");
+  $("#v-min").html("<br>Vmin do arranjo FV: "+arranjo.Vmin.toFixed(2)+"V</br>");
+  $("#corrente-arranjo").html("<br>Corrente do arranjo FV: "+painel.correnteSC*arranjo.numParalelo+"A</br>");
+  $("#painel-nome").html("<br>Painel: "+painel.nome+"  </br>");
+  $("#painel-imagem").html(painel.imagem);
+  $("#potencia-painel").html("<br>Potência do painel: "+painel.potencia+" W </br>");
+  $("#vmax-painel").html("<br>Tensão máxima: "+painel.Vmax+ "V </br>");
+  $("#vmin-painel").html("<br>Tensão mínima: "+painel.Vmin+ "V </br>");
+  $("#corrente-painel").html("<br>Corrente de curto circuito: "+painel.correnteSC+ "A </br>");
+  $("#inversor-nome").html("<br>"+inversor.nome+"</br>");
+  $("#inversor-imagem").html(inversor.imagem);
+  $("#inversor-max-pot-entrada").html("<br>Potência máxima de entrada: "+inversor.potMaxEntrada+" W</br>");
+  $("#inversor-tensao-max-entrada").html("<br>Tensão máxima de entrada: "+inversor.VMaxEntrada+" V</br>");
+  $("#inversor-mppt").html("<br>Faixa MPPT: "+inversor.VmpptMin+"V ~ "+ inversor.VmpptMax+" V </br>");
+  $("#tensao-min-inicializacao").html("<br>Tensão mínima para inicialização: "+inversor.VMinStart+" V </br>");
+  $("#inversor-corrente-entrada").html("<br>Corrente máxima de entrada: "+inversor.correnteMax+" A </br>");
+});
 
 $("#button-tutorial").click(function(){
   $("#tutorial-intro").html("<br>Para projetar o sistema é necessário saber o consumo de energia elétrica e a quantidade de energia solar no local da instalação. Dessa maneira, utilizaremos os valores do consumo mensal médio e da irradiação.</br>");
@@ -923,58 +1401,113 @@ $("#button-tutorial").click(function(){
   $("#tutorial-TD").html("<br>Além disso, devemos considerar a taxa de desempenho do sistema. Essa é equivalente ao rendimento de todo o sistema e leva em consideração as eventuais perdas dos equipamentos e os efeitos ambientais externos que influenciam na produção de energia. (Valor padrão entre 0.7 e 0.8)</br><br>Taxa de Desempenho = "+sistema.TD+"</br>");
   $("#tutorial-pot-necessaria").html("<br>Com esse valores podemos estimar a potência necessária para abater o consumo de energia elétrica. Basta utilizar a seguinte relação:</br><br>Potência necessária = [(Consumo médio diária) / (Taxa de desempenho do sistema)] / (horas de sol pleno)</br> <br>Potência necessária = ("+(((sistema.consumoMensal-sistema.disponibilidade)/30)*1000).toFixed(2)+"/"+sistema.TD+") / ("+sistema.HSP+") = "+sistema.potNecessaria.toFixed(2)+"W </br>");
   $("#tutorial-dimensionamento-intro").html("<br>A partir desse valor poderemos dimensionar os esquipamentos que compõe o sistema conectado à rede, sendo os principais os painéis e o inversor.</br>");
-
+  if(sistema.potNecessaria>=10000){
+    $("#tutorial-dimensionamento-10000").html("<br>Como a potência necessária é maior que 10000 kW, serão necessários mais que um inversor para a conexão com a rede elétrica. Uma vez que os painéis geram energia CC, enquanto a rede trabalha em regime CA. Sendo assim, trabalharemos com 3 inversores.</br><img src='imagens/forma.png' class='img-responsive center-block' alt='tabela'>");
+    $("#tutorial-dimensionamento-10000-potencia").html("<br>Logo, a potência necessária será dividida por 3 e será distribuida para cada inversor. Desse jeito, a potência para cada inversor é:</br><br>Potência para cada inversor = Potência necessária / 3</br><br>Potência para cada inversor = "+(sistema.potNecessaria.toFixed(2))+"W/3</br><br>Potência para cada inversor = "+potInteira.toFixed(2)+"W</br>");
+    $("#tutorial-dimensionamento-10000-inversor").html("<br>Com base nesse valor, deve-se procurar um inversor com a potência nominal próxima. Portanto, escolheu-se o "+inversor.nome+", que possui como potência máxima de entrada: "+inversor.potMaxEntrada+"W</br>");
+    $("#tutorial-dimensionamento").html("");
+    $("#tutorial-dimensionamento-potencia").html("");
+    $("#tutorial-dimensionamento-inversor").html("");
+    $("#tutorial-dimensionamento-gt260").html("");
+    $("#tutorial-dimensionamento-gt260-potencia").html("");
+  }
+  if(sistema.potNecessaria<10000 && sistema.numInversores==1){
+    $("#tutorial-dimensionamento-10000").html("");
+    $("#tutorial-dimensionamento-10000-potencia").html("");
+    $("#tutorial-dimensionamento-10000-inversor").html("");
+    $("#tutorial-dimensionamento-gt260").html("");
+    $("#tutorial-dimensionamento-gt260-potencia").html("");
+    $("#tutorial-dimensionamento").html("<br>Como a potência necessária é menor que 10000 kW, será preciso somente um inversor para a conexão com a rede elétrica[norma ANEEL]. Lembrando que os painéis geram energia CC, enquanto a rede trabalha em regime CA.</br><img src='imagens/forma.png' class='img-responsive center-block' alt='tabela'>");
+    $("#tutorial-dimensionamento-potencia").html("");
+    $("#tutorial-dimensionamento-inversor").html("<br>Com base no valor da potência necessária, deve-se procurar um inversor com a potência nominal próxima. Portanto, escolheu-se o "+inversor.nome+", que possui como potência máxima de entrada: "+inversor.potMaxEntrada+"W</br>");
+  }
+  if(inversor.nome == "Microinversor i-Energy GT260"){
+    if(sistema.numInversores>1){
+      $("#tutorial-dimensionamento-10000").html("");
+      $("#tutorial-dimensionamento-10000-potencia").html("");
+      $("#tutorial-dimensionamento-10000-inversor").html("");
+      $("#tutorial-dimensionamento").html("");
+      $("#tutorial-dimensionamento-potencia").html("");
+      $("#tutorial-dimensionamento-inversor").html("");
+      $("#tutorial-dimensionamento-gt260").html("<br>Neste caso, serão necessários mais que um inversor para a conexão com a rede elétrica. Considerando que os painéis geram energia CC, enquanto a rede trabalha em regime CA. Esse caso, em especial requer um inversor de baixa potência, pois o consumo é muito baixo.</br><img src='imagens/forma.png' class='img-responsive center-block' alt='tabela'>");
+      $("#tutorial-dimensionamento-gt260-potencia").html("<br>A potência necessária será dividida pela potência do inversor de 265W. Desse jeito, serão utilizados "+sistema.numInversores+" inversores, modelo "+inversor.nome+", o que dará uma potência de "+sistema.numInversores*inversor.potMaxEntrada+" W</br>");
+    }
+    if(sistema.numInversores==1){
+      $("#tutorial-dimensionamento-10000").html("");
+      $("#tutorial-dimensionamento-10000-potencia").html("");
+      $("#tutorial-dimensionamento-10000-inversor").html("");
+      $("#tutorial-dimensionamento").html("");
+      $("#tutorial-dimensionamento-potencia").html("");
+      $("#tutorial-dimensionamento-inversor").html("");
+      $("#tutorial-dimensionamento-gt260-potencia").html("");
+      $("#tutorial-dimensionamento-gt260").html("<br>Utilizaremos um inversor de baixa potência, pois o consumo é muito baixo. A potência necessária será próxima da potência do inversor que é de 260W. Desse jeito, será utilizado "+sistema.numInversores+" inversor, modelo: "+inversor.nome+"</br>");
+    }
+  }
   $("#tutorial-dimensionamento-numero-paineis-1").html("<br>O número de painéis desse sistema é determinado a partir da potência que o consumo demanda. Como a potência exigida pelo consumo é "+sistema.potNecessaria.toFixed(2)+"W, e a potência do painel é "+painel.potencia+" W pode-se fazer uma estimativa do número de painéis necessários.</br><br>Número de paineis = Potência necessária no consumo / Potência nominal do Painel</br><br>Número de paineis  = "+sistema.potNecessaria.toFixed(2)+"W / "+painel.potencia+"W </br><br>Número de paineis  = "+(sistema.potNecessaria/painel.potencia).toFixed(2)+"</br>");
+  $("#tutorial-dimensionamento-numero-paineis-2").html("<br>Neste caso foi escolhido utilizar "+sistema.numPaineis+" painéis, gerando uma potência nominal de ("+sistema.numPaineis+"*"+painel.potencia+"W) = "+sistema.potencia+"W </br>");
   $("#tutorial-dimensionamento-arranjo").html("<br>Agora basta determinar a ligação(série ou paralelo) entre os painéis, a arquitetura será determinada a partir dos parâmetros de entrada do inversor.</br>");
   $("#tutorial-dimensionamento-arranjo-inversor").html("<br>Ao buscar no datasheet encontram-se os dados de entrada do inversor:</br><br>"+inversor.nome+"</br><br>"+inversor.imagem+"</br><br>Potência máxima de entrada: "+inversor.potMaxEntrada+" W</br><br>Tensão máxima de entrada: "+inversor.VMaxEntrada+" V</br><br>Faixa MPPT: "+inversor.VmpptMin+"V ~ "+ inversor.VmpptMax+" V </br><br>Tensão mínima para inicialização: "+inversor.VMinStart+" V </br><br>Corrente máxima de entrada: "+inversor.correnteMax+" A </br>");
   $("#tutorial-dimensionamento-arranjo-painel").html("<br>Deve-se também buscar os valores de tensão e corrente produzidos pelo painel escolhido. No datasheet encontram-se os dados: </br><br>Modelo: "+painel.nome+"</br><br>"+painel.imagem+"</br><br>Potência: "+painel.potencia+" W</br><br>Tensão máxima: "+painel.Vmax+" V</br><br>Tensão mínima: "+painel.Vmin+" V</br><br>Corrente de curto circuito: "+painel.correnteSC+" A</br>");
-  $("#tutorial-dimensionamento-arranjo-2").html("<br>Visando estar dentro da faixa de operação MPPT do inversor e respeitando os limites de potência, tensão e corrente. Deve-se conectar na entrada do inversor:</br><br>Painéis em série, cuja soma das tensões respeite às tensões de entrada do inversor.</br><br>Strings em paralelo, cuja soma das correntes respeite às correntes de entrada do inversor.</br><img src='imagens/paineis.png' class='img-responsive center-block' alt='tabela'>");
-
-  $("#tutorial-dimensionamento-arranjo-3").html("<br> Desse modo, no arranjo:</br><br>Tensão máxima  = Tensão máxima do painel * Número de paineis em série </br><br>Tensão mínima = Tensão mínima do painel * Número de paineis em série </br><br>Corrente máxima = Corrente de curto circuito do painel * Número de Strings em paralelo</br><br>Potência de entrada = Potência do painel * número de painéis em série * número de Strings em paralelo </br>");
+  if(sistema.numInversores<=1){
+    $("#tutorial-dimensionamento-arranjo-2").html("<br>Visando estar dentro da faixa de operação MPPT do inversor e respeitando os limites de potência, tensão e corrente. Optou-se por conectar na entrada do inversor:</br><br>Painéis em série: "+arranjo.numSerie+"</br><br>Strings em paralelo: "+arranjo.numParalelo+"</br><img src='imagens/paineis.png' class='img-responsive center-block' alt='tabela'>");
+  }
+  if(sistema.numInversores>1){
+    $("#tutorial-dimensionamento-arranjo-2").html("<br>Visando estar dentro da faixa de operação MPPT do inversor e respeitando os limites de potência, tensão e corrente. Optou-se por conectar na entrada de cada um dos "+sistema.numInversores+" inversores:</br><br>Painéis em série: "+arranjo.numSerie+"</br><br>Strings em paralelo: "+arranjo.numParalelo+"</br><img src='imagens/paineis.png' class='img-responsive center-block' alt='tabela'><br>Totalizando "+sistema.numPaineis+" painéis.</br><br>(Número painéis série * número de cadeias paralelo * número de inversores)</br><br>("+arranjo.numSerie+" * "+arranjo.numParalelo+" * "+sistema.numInversores+") = "+sistema.numPaineis+"</br>");
+  }
+  $("#tutorial-dimensionamento-arranjo-3").html("<br> Desse modo, no arranjo:</br><br>Tensão máxima  = Tensão máxima do painel * Número de paineis em série </br><br>Tensão máxima  = "+arranjo.Vmax.toFixed(2)+" V </br><br>Tensão mínima = Tensão mínima do painel * Número de paineis em série </br><br>Tensão mínima = "+arranjo.Vmin.toFixed(2)+" V</br><br>Corrente máxima = Corrente de curto circuito do painel * Número de Strings em paralelo</br><br>Corrente máxima = "+arranjo.Imax+" A</br><br>Potência de entrada = Potência do painel * número de painéis em série * número de Strings em paralelo </br><br>Potência de entrada = "+arranjo.numSerie*arranjo.numParalelo*painel.potencia+" W</br>");
   var energiaDiaria = sistema.potencia*sistema.HSP*sistema.TD;
-  $("#tutorial-energia-diaria").html("<br>A energia diária média produzida por esse sistema é calculada utilizando:</br><br>Energia diária = Potência do sistema * Horas de Sol Pleno * Taxa de Desempenho do sistema</br><br>Energia diária = Potência do sistema * "+sistema.HSP+" * "+sistema.TD+"</br>");
-  $("#tutorial-energia-mensal").html("<br>Logo:</br><br>Energia mensal média = 30 * Energia diária </br>");
-  $("#tutorial-energia-anual").html("<br>Energia anual média = 365 * Energia diária </br>");
-  $("#tutorial-financeiro").html("<br>A receita economizada com o sistema fotovolaico em um ano é dada pela tarifa de energia e pela produção média anual de energia. Desse modo: </br><br>Receita = Energia anual média * Tarifa de energia</br><br>Receita = Energia anual média * R$"+investimento.tarifa+" </br>");
+  $("#tutorial-energia-diaria").html("<br>A energia diária média produzida por esse sistema é calculada utilizando:</br><br>Energia diária = Potência do sistema * Horas de Sol Pleno * Taxa de Desempenho do sistema</br><br>Energia diária = "+sistema.potencia+" * "+sistema.HSP+" * "+sistema.TD+"</br><br>Energia diária = "+energiaDiaria.toFixed(2)+" Wh</br>");
+  $("#tutorial-energia-mensal").html("<br>Logo:</br><br>Energia mensal média = 30 * Energia diária </br><br>Energia mensal média = 30*"+energiaDiaria.toFixed(2)+" Wh</br><br>Energia mensal média = "+sistema.energiaMensal.toFixed(2)+" kWh</br>");
+  $("#tutorial-energia-anual").html("<br>Energia anual média = 365 * Energia diária </br><br>Energia anual média = 365*"+energiaDiaria.toFixed(2)+" Wh</br><br>Energia anual média = "+sistema.energiaAnual.toFixed(2)+" kWh</br>");
+  $("#tutorial-financeiro").html("<br>A receita economizada com o sistema fotovolaico em um ano é dada pela tarifa de energia e pela produção média anual de energia. Desse modo: </br><br>Receita = Energia anual média * Tarifa de energia</br><br>Receita = "+sistema.energiaAnual.toFixed(2)+" * R$"+investimento.tarifa+" = R$"+investimento.tarifa*sistema.energiaAnual+"</br>");
   //tutorial.tma = investimento.tma*100;
   tutorial.decaimentoPainel = investimento.decaimentoPainel*100
-  $("#tutorial-financeiro-2").html("<br>Para a realização da análise de investimentos considerou-se: </br><br>- Período de vida útil do sistema de 25 anos.</br><br>- Taxa mínima de atratividade escolhida foi de "+tutorial.tma+"% ao ano.[O valor de 6.50% equivale a um rendimento de poupança] </br><br>- Decaimento de produção de energia dos painéis de "+tutorial.decaimentoPainel.toFixed(2)+"% ao ano.</br><br>- Taxa de correção da tarifa de energia elétrica de "+investimento.ajusteTarifa*100+"% ao ano.</br><br>- O custo da estrutura de suporte dos painéis foi estimado em R$"+investimento.custoEstrutura.toFixed(2)+".</br><br>- O custo de cabeamento e proteção do sistema foi estimado em R$"+investimento.custoCabeamento.toFixed(2)+".</br>");
-  $("#tutorial-financeiro-VLP").html("<br>O <a href='https://pt.wikipedia.org/wiki/Valor_presente_líquido' target='_blank'>Valor Presente Líquido</a> (VPL) é um dos parâmetros utilizados para verificar a viabilidade de investimentos, que consiste em calcular o valor presente de uma série de futuros pagamentos comparando-os com o custo inicial estimado do investimento.</br>");
-  $("#tutorial-financeiro-TIR").html("<br>A <a href='https://pt.wikipedia.org/wiki/Taxa_interna_de_retorno' target='_blank'>Taxa Interna de Retorno</a> (TIR) consiste em outro parâmetro utilizado para a análise de investimentos, tal ferramenta é um método matemático para estimar a taxa de retorno do investimento, seu cálculo é feito buscando-se a taxa de retorno que faz o Valor Presente Líquido ser zero.</br>");
-  $("#tutorial-financeiro-PB").html("<br>O <a href='https://pt.wikipedia.org/wiki/Payback' target='_blank'>Payback</a> consiste no tempo necessário para pagar o custo inicial de um investimento, compondo outro importante parâmetro para a análise financeira. O Paybak normal conta as entradas do fluxo de caixa para abater o custo total inicial do investimento, já o Payback descontado leva em consideração a taxa mínima de atratividade e conta o fluxo de caixa no tempo presente.</br>");
-  $("#tutorial-financeiro-final").html("<br>Em caso de problemas ou desejo de adicionar algum equipamento no banco de dados envie email para: <strong>solano.aguirre@engenharia.ufjf.br</strong></br>");
+  $("#tutorial-financeiro-2").html("<br>Para a realização da análise de investimentos foi considerado: </br><br>Período de vida útil do sistema de 25 anos.</br><br>Taxa mínima de atratividade escolhida foi de "+tutorial.tma+"% ao ano.[O valor de 6.50% equivale a um rendimento de poupança] </br><br>Decaimento de produção de energia dos painéis de "+tutorial.decaimentoPainel.toFixed(2)+"% ao ano.</br><br>Taxa de correção da tarifa de energia elétrica de "+investimento.ajusteTarifa*100+"% ao ano.</br><br>O custo da estrutura de suporte dos painéis foi estimado em R$"+investimento.precoEstrutura.toFixed(2)+" por Watt de potência instalada.</br><br>O custo de cabeamento e proteção do sistema foi estimado em R$"+investimento.precoCabeamento.toFixed(2)+" por Watt de potência instalada.</br><br>Em caso de problemas ou desejo de adicionar algum equipamento no banco de dados envie email para: <strong>solano.aguirre@engenharia.ufjf.br</strong></br>");
 });
 
 $("#button-analise").click(function(){
-  $("#vida-util").html("<br>Período de vida útil do sistema de 25 anos.</br>");
-  $("#preco-paineis").html("<br>Preço unitário do painel</a>: R$"+painel.preco+"</br>");
-  $("#preco-inversores").html("<br>Preço unitário do inversor</a>: R$"+inversor.preco+"</br>");
+  $("#custo-total-paineis").html("<br>Custo total dos painéis</a>: R$"+investimento.custoPaineis+"</br>");
+  $("#custo-total-inversor").html("<br>Custo total dos Inversores: R$"+investimento.custoInversor+ "</br>");
   $("#custo-total-estrutura").html("<br>Custo estimado com a Estrutura: R$"+investimento.custoEstrutura+ "</br>");
   $("#custo-total-cabeamento").html("<br>Custo estimado com Cabeamento e Proteção: R$"+investimento.custoCabeamento+ "</br>");
+  $("#custo-total-sistema").html("<br>Custo total do sistema: R$"+investimento.custoTotal+"</br>");
+  $("#taxa-minima-atratividade").html("<br><a href='http://www.wrprates.com/o-que-e-tma-taxa-minima-de-atratividade/' target='_blank'>Taxa mínima de atratividade</a>: "+tutorial.tma+"% ao ano</br>");
+  $("#valor-presente-liquido").html("<br><a href='http://www.wrprates.com/o-que-e-vpl-valor-presente-liquido/' target='_blank'>Valor Presente Líquido</a>: R$"+investimento.vpl.toFixed(2)+"</br>");
+  $("#taxa-interna-retorno").html("<br><a href='http://www.wrprates.com/o-que-e-tir-taxa-interna-de-retorno/' target='_blank'>Taxa Interna de Retorno</a>: "+investimento.tir.toFixed(2)+"% ao ano</br>");
+  $("#payback").html("<br><a href='http://www.wrprates.com/qual-e-a-diferenca-entre-payback-simples-e-descontado/' target='_blank'>Payback</a>: "+investimento.payback.toFixed(2)+" anos</br>");
+  var tipovarpaybackdescontado = typeof investimento.paybackDescontado;
+  if(tipovarpaybackdescontado == "number"){
+      $("#payback-descontado").html("<br><a href='http://www.wrprates.com/qual-e-a-diferenca-entre-payback-simples-e-descontado/' target='_blank'>Payback Descontado</a>: "+investimento.paybackDescontado.toFixed(2)+" anos</br>");
+  }
+  if(tipovarpaybackdescontado == "string"){
+      $("#payback-descontado").html("<br><a href='http://www.wrprates.com/qual-e-a-diferenca-entre-payback-simples-e-descontado/' target='_blank'>Payback Descontado</a>: "+investimento.paybackDescontado+" </br>");
+  }
+
 
 });
 
+// $("#pot-sistema").html("<br>Na faixa MPPT("+inversor.VmpptMin+"V - "+inversor.VmpptMax+" V):"+ +"</br>");
 
 //código para a rolagem rápida no tutorial
 var $doc = $('html, body');
 
-$('.scrollSuave').click(function() {
-    $("#myModalEquipamentos").animate({
-      //scrollTop: $( $.attr(this, 'href') ).offset().top
-      scrollTop: 400
-    }, 500);
-    //return false;
-});
+// $('.scrollSuave').click(function() {
+//     $("#myModalEquipamentos").animate({
+//       //scrollTop: $( $.attr(this, 'href') ).offset().top
+//       scrollTop: 400
+//     }, 500);
+//     //return false;
+// });
 
 
-$("#myModalEquipamentos").animate({"scrollTop": 00}, 400)
-function teste222() {
-    $doc.animate({
-        scrollTop: $("#determinacao-demanda").offset().top
-    }, 500);
-    return false;
-};
-$("#myModalEquipamentos").animate({"scrollTop": 00}, 400)
+//$("#myModalEquipamentos").animate({"scrollTop": 00}, 400)
+// function teste222() {
+//     $doc.animate({
+//         scrollTop: $("#determinacao-demanda").offset().top
+//     }, 500);
+//     return false;
+// };
+//$("#myModalEquipamentos").animate({"scrollTop": 00}, 400)
 
 //-------------Otimização-----------------------------------
 
@@ -1000,6 +1533,13 @@ function potenciaCustos(){
     }
     otimizacao.arrayCustoTotal.push( custoDoSistema(i,painel.preco,sistema.numInversores,inversor.preco,investimento.custoEstrutura,investimento.custoCabeamento) );
 
+
+    //testeVpl(potenciaAtual,custoTotal);
+    //console.log("Custo Total: "+custoTotal+"Potencia atual: "+potenciaAtual);
+    //Até aqui está correto! Verificar a função energiaProduzidaAnual!
+    //investimento.tma, investimento.tarifa, sistema.HSP,sistema.TD são dados inseridos pelo usuário; investimento.ajusteTarifa e investimento.decaimentoPainel, numPeriodos = 25 estão fixados pelo programador
+    //energiaProduzidaAnual(potenciaAtual,sistema.HSP,sistema.TD,25, investimento.decaimentoPainel,investimento.tarifa,investimento.ajusteTarifa, investimento.tma,custoTotal);
+
   }
 
   console.log("fim da função");
@@ -1013,9 +1553,6 @@ function custoDoSistema(numeroPaineis,custoPainel,NumeroInversores,custoInversor
 }
 
 
-
-
-
 //Função Testada!
 function energiaProduzidaAnual(potencia,hsp,taxaDesempenho,periodos,taxaDecaimentoPainel,tarifaEnergia,taxaReajusteTarifa,tma,custoTotal){
       var energia = potencia*hsp*taxaDesempenho*(365/1000);
@@ -1024,87 +1561,17 @@ function energiaProduzidaAnual(potencia,hsp,taxaDesempenho,periodos,taxaDecaimen
       var arrayTarifa = [];
       var arrayCaixa = [];
       //os vetor arrayEnergia e arrayDecaimento terão tamanhos numPeriodos+1
-      for(i=0; i<periodos;i++){
+      for(i=0; i<=periodos;i++){
           arrayDecaimento.push(Math.pow( (1.0 - taxaDecaimentoPainel), i));
           arrayEnergia.push(arrayDecaimento[i]*energia);
           arrayTarifa.push(tarifaEnergia*Math.pow((1.0 + taxaReajusteTarifa), i));
           arrayCaixa.push(arrayTarifa[i]*arrayEnergia[i]);
       }
-
-
       arrayCaixa[0] = arrayCaixa[0]-custoTotal;
-      otimizacao.arrayTodosCaixas.push(arrayCaixa);
-      otimizacao.todosTir.push(arrayCaixa);
-      otimizacao.todosVpl.push( vplInvestimento(tma,arrayCaixa)  );
-    //  otimizacao.todosTir.push( tir(arrayCaixa)      );
-      otimizacao.todosPayback.push( payback(arrayCaixa.length-1,arrayCaixa) );
-      otimizacao.todosPaybackDescontado.push( payback(otimizacao.arrayCaixaPresente.length-1,otimizacao.arrayCaixaPresente) ); //payback(investimento.arrayCaixaPresente.length-1,investimento.arrayCaixaPresente);
-
-
-
-
-
+      //return vpl(tma,arrayCaixa);
+      otimizacao.todosVpl.push( vpl(tma,arrayCaixa)  );
 }
 
-
-
-//testes
-// if(potencia == 2000){
-//   var a = 0;
-//   console.log("Potencia:"+potencia+"W");
-//   console.log("Energia no ano 0: "+arrayEnergia[0]+"kWh  tarifa ano 0: R$ "+arrayTarifa[0]+"Caixa no ano 0: R$ "+arrayCaixa[0]+"Caixa no ano 0 presente: R$ "+arrayCaixa[0]/Math.pow( (1.0 + 0.03), 0)+" ");
-//   a = a + arrayCaixa[0]/Math.pow( (1.0 + 0.03), 0);
-//   console.log("Energia no ano 1: "+arrayEnergia[1]+"kWh  tarifa ano 1: R$ "+arrayTarifa[1]+"Caixa no ano 1: R$ "+arrayCaixa[1]+"Caixa no ano 1 presente: R$ "+arrayCaixa[1]/Math.pow((1.0 + 0.03), 1)+" ");
-//   a = a + arrayCaixa[1]/Math.pow( (1.0 + 0.03), 1);
-//   console.log("Energia no ano 2: "+arrayEnergia[2]+"kWh  tarifa ano 2: R$ "+arrayTarifa[2]+"Caixa no ano 2: R$ "+arrayCaixa[2]+"Caixa no ano 2 presente: R$ "+arrayCaixa[2]/Math.pow((1.0 + 0.03), 2)+" ");
-//   a = a + arrayCaixa[2]/Math.pow( (1.0 + 0.03), 2);
-//   console.log("Energia no ano 3: "+arrayEnergia[3]+"kWh  tarifa ano 3: R$ "+arrayTarifa[3]+"Caixa no ano 3: R$ "+arrayCaixa[3]+"Caixa no ano 3 presente: R$ "+arrayCaixa[3]/Math.pow((1.0 + 0.03), 3)+" ");
-//   a = a + arrayCaixa[3]/Math.pow( (1.0 + 0.03), 3);
-//   console.log("Energia no ano 4: "+arrayEnergia[4]+"kWh  tarifa ano 4: R$ "+arrayTarifa[4]+"Caixa no ano 4: R$ "+arrayCaixa[4]+"Caixa no ano 4 presente: R$ "+arrayCaixa[4]/Math.pow((1.0 + 0.03), 4)+" ");
-//   a = a + arrayCaixa[4]/Math.pow( (1.0 + 0.03), 4);
-//   console.log("Energia no ano 5: "+arrayEnergia[5]+"kWh  tarifa ano 5: R$ "+arrayTarifa[5]+"Caixa no ano 5: R$ "+arrayCaixa[5]+"Caixa no ano 5 presente: R$ "+arrayCaixa[5]/Math.pow((1.0 + 0.03), 5)+" ");
-//   a = a + arrayCaixa[5]/Math.pow( (1.0 + 0.03), 5);
-//   console.log("Energia no ano 6: "+arrayEnergia[6]+"kWh  tarifa ano 6: R$ "+arrayTarifa[6]+"Caixa no ano 6: R$ "+arrayCaixa[6]+"Caixa no ano 6 presente: R$ "+arrayCaixa[6]/Math.pow((1.0 + 0.03), 6)+" ");
-//   a = a + arrayCaixa[6]/Math.pow( (1.0 + 0.03), 6);
-//   console.log("Energia no ano 7: "+arrayEnergia[7]+"kWh  tarifa ano 7: R$ "+arrayTarifa[7]+"Caixa no ano 7: R$ "+arrayCaixa[7]+"Caixa no ano 7 presente: R$ "+arrayCaixa[7]/Math.pow((1.0 + 0.03), 7)+" ");
-//   a = a + arrayCaixa[7]/Math.pow( (1.0 + 0.03), 7);
-//   console.log("Energia no ano 8: "+arrayEnergia[8]+"kWh  tarifa ano 8: R$ "+arrayTarifa[8]+"Caixa no ano 8: R$ "+arrayCaixa[8]+"Caixa no ano 8 presente: R$ "+arrayCaixa[8]/Math.pow((1.0 + 0.03), 8)+" ");
-//   a = a + arrayCaixa[8]/Math.pow( (1.0 + 0.03), 8);
-//   console.log("Energia no ano 9: "+arrayEnergia[9]+"kWh  tarifa ano 9: R$ "+arrayTarifa[9]+"Caixa no ano 9: R$ "+arrayCaixa[9]+"Caixa no ano 9 presente: R$ "+arrayCaixa[9]/Math.pow((1.0 + 0.03), 9)+" ");
-//   a = a + arrayCaixa[9]/Math.pow( (1.0 + 0.03), 9);
-//   console.log("Energia no ano 10: "+arrayEnergia[10]+"kWh  tarifa ano 10: R$ "+arrayTarifa[10]+"Caixa no ano 10: R$ "+arrayCaixa[10]+"Caixa no ano 10 presente: R$ "+arrayCaixa[10]/Math.pow( (1.0 + 0.03), 10) );
-//   a = a + arrayCaixa[10]/Math.pow( (1.0 + 0.03), 10);
-//   console.log("Energia no ano 11: "+arrayEnergia[11]+"kWh  tarifa ano 11: R$ "+arrayTarifa[11]+"Caixa no ano 11: R$ "+arrayCaixa[11]+"Caixa no ano 11 presente: R$ "+arrayCaixa[11]/Math.pow( (1.0 + 0.03), 11) );
-//   a = a + arrayCaixa[11]/Math.pow( (1.0 + 0.03), 11);
-//   console.log("Energia no ano 12: "+arrayEnergia[12]+"kWh  tarifa ano 12: R$ "+arrayTarifa[12]+"Caixa no ano 12: R$ "+arrayCaixa[12]+"Caixa no ano 12 presente: R$ "+arrayCaixa[12]/Math.pow( (1.0 + 0.03), 12) );
-//   a = a + arrayCaixa[12]/Math.pow( (1.0 + 0.03), 12);
-//   console.log("Energia no ano 13: "+arrayEnergia[13]+"kWh  tarifa ano 13: R$ "+arrayTarifa[13]+"Caixa no ano 13: R$ "+arrayCaixa[13]+"Caixa no ano 13 presente: R$ "+arrayCaixa[13]/Math.pow( (1.0 + 0.03), 13) );
-//   a = a + arrayCaixa[13]/Math.pow( (1.0 + 0.03), 13);
-//   console.log("Energia no ano 14: "+arrayEnergia[14]+"kWh  tarifa ano 14: R$ "+arrayTarifa[14]+"Caixa no ano 14: R$ "+arrayCaixa[14]+"Caixa no ano 14 presente: R$ "+arrayCaixa[14]/Math.pow( (1.0 + 0.03), 14) );
-//   a = a + arrayCaixa[14]/Math.pow( (1.0 + 0.03), 14);
-//   console.log("Energia no ano 15: "+arrayEnergia[15]+"kWh  tarifa ano 15: R$ "+arrayTarifa[15]+"Caixa no ano 15: R$ "+arrayCaixa[15]+"Caixa no ano 15 presente: R$ "+arrayCaixa[15]/Math.pow( (1.0 + 0.03), 15) );
-//   a = a + arrayCaixa[15]/Math.pow( (1.0 + 0.03), 15);
-//   console.log("Energia no ano 16: "+arrayEnergia[16]+"kWh  tarifa ano 16: R$ "+arrayTarifa[16]+"Caixa no ano 16: R$ "+arrayCaixa[16]+"Caixa no ano 16 presente: R$ "+arrayCaixa[16]/Math.pow( (1.0 + 0.03), 16) );
-//   a = a + arrayCaixa[16]/Math.pow( (1.0 + 0.03), 16);
-//   console.log("Energia no ano 17: "+arrayEnergia[17]+"kWh  tarifa ano 17: R$ "+arrayTarifa[17]+"Caixa no ano 17: R$ "+arrayCaixa[17]+"Caixa no ano 17 presente: R$ "+arrayCaixa[17]/Math.pow( (1.0 + 0.03), 17) );
-//   a = a + arrayCaixa[17]/Math.pow( (1.0 + 0.03), 17);
-//   console.log("Energia no ano 18: "+arrayEnergia[18]+"kWh  tarifa ano 18: R$ "+arrayTarifa[18]+"Caixa no ano 18: R$ "+arrayCaixa[18]+"Caixa no ano 18 presente: R$ "+arrayCaixa[18]/Math.pow( (1.0 + 0.03), 18) );
-//   a = a + arrayCaixa[18]/Math.pow( (1.0 + 0.03), 18);
-//   console.log("Energia no ano 19: "+arrayEnergia[19]+"kWh  tarifa ano 19: R$ "+arrayTarifa[19]+"Caixa no ano 19: R$ "+arrayCaixa[19]+"Caixa no ano 19 presente: R$ "+arrayCaixa[19]/Math.pow( (1.0 + 0.03), 19) );
-//   a = a + arrayCaixa[19]/Math.pow( (1.0 + 0.03), 19);
-//   console.log("Energia no ano 20: "+arrayEnergia[20]+"kWh  tarifa ano 20: R$ "+arrayTarifa[20]+"Caixa no ano 20: R$ "+arrayCaixa[20]+"Caixa no ano 20 presente: R$ "+arrayCaixa[20]/Math.pow( (1.0 + 0.03), 20) );
-//   a = a + arrayCaixa[20]/Math.pow( (1.0 + 0.03), 20);
-//   console.log("Energia no ano 21: "+arrayEnergia[21]+"kWh  tarifa ano 21: R$ "+arrayTarifa[21]+"Caixa no ano 21: R$ "+arrayCaixa[21]+"Caixa no ano 21 presente: R$ "+arrayCaixa[21]/Math.pow( (1.0 + 0.03), 21) );
-//   a = a + arrayCaixa[21]/Math.pow( (1.0 + 0.03), 21);
-//   console.log("Energia no ano 22: "+arrayEnergia[22]+"kWh  tarifa ano 22: R$ "+arrayTarifa[22]+"Caixa no ano 22: R$ "+arrayCaixa[22]+"Caixa no ano 22 presente: R$ "+arrayCaixa[22]/Math.pow( (1.0 + 0.03), 22) );
-//   a = a + arrayCaixa[22]/Math.pow( (1.0 + 0.03), 22);
-//   console.log("Energia no ano 23: "+arrayEnergia[23]+"kWh  tarifa ano 23: R$ "+arrayTarifa[23]+"Caixa no ano 23: R$ "+arrayCaixa[23]+"Caixa no ano 23 presente: R$ "+arrayCaixa[23]/Math.pow( (1.0 + 0.03), 23) );
-//   a = a + arrayCaixa[23]/Math.pow( (1.0 + 0.03), 23);
-//   console.log("Energia no ano 24: "+arrayEnergia[24]+"kWh  tarifa ano 24: R$ "+arrayTarifa[24]+"Caixa no ano 24: R$ "+arrayCaixa[24]+"Caixa no ano 24 presente: R$ "+arrayCaixa[24]/Math.pow( (1.0 + 0.03), 24) );
-//   a = a + arrayCaixa[24]/Math.pow( (1.0 + 0.03), 24);
-//   console.log("Custo total: R$"+custoTotal+ "Entrada total presente RS"+a);
-//
-// }
 
 function testeVpl(){
 
@@ -1731,7 +2198,7 @@ function ajusteTarifa(taxa, numPeriodos){
 
 
 
-  var ctx = document.getElementById('myChartVPL').getContext('2d');
+  var ctx = document.getElementById('myChart').getContext('2d');
   var chart = new Chart(ctx, {
       // The type of chart we want to create
       type: 'line',
@@ -1741,7 +2208,7 @@ function ajusteTarifa(taxa, numPeriodos){
           //labels: ["January", "February", "March", "April", "May", "June", "July"],
           labels : otimizacao.numeroPaineis,
           datasets: [{
-              label: "Número de painéis x Valor presente líquido",
+              label: "Valor presente líquido - Otimização",
               backgroundColor: 'rgb(255, 99, 132)',
               borderColor: 'rgb(255, 99, 132)',
               //data: [0, 10, 5, 2, 20, 30, 45],
@@ -1754,84 +2221,11 @@ function ajusteTarifa(taxa, numPeriodos){
   });
 
 
-  var ctx = document.getElementById('myChartPB').getContext('2d');
-  var chart = new Chart(ctx, {
-      // The type of chart we want to create
-      type: 'line',
-
-      // The data for our dataset
-      data: {
-          //labels: ["January", "February", "March", "April", "May", "June", "July"],
-          labels : otimizacao.numeroPaineis,
-          datasets: [{
-              label: "Número de painéis x Payback",
-              backgroundColor: 'rgb(132, 99, 255)',
-              borderColor: 'rgb(132, 99, 255)',
-              //data: [0, 10, 5, 2, 20, 30, 45],
-              data : otimizacao.payback,
-          }]
-      },
-
-      // Configuration options go here
-      options: {}
-  });
-
-  var ctx = document.getElementById('myChartPBD').getContext('2d');
-  var chart = new Chart(ctx, {
-      // The type of chart we want to create
-      type: 'line',
-
-      // The data for our dataset
-      data: {
-          //labels: ["January", "February", "March", "April", "May", "June", "July"],
-          labels : otimizacao.numeroPaineis,
-          datasets: [{
-              label: "Número de painéis x Payback Descontado",
-              backgroundColor: 'rgb(99, 132, 255)',
-              borderColor: 'rgb(99, 132, 255)',
-              //data: [0, 10, 5, 2, 20, 30, 45],
-              data : otimizacao.paybackDescontado,
-          }]
-      },
-
-      // Configuration options go here
-      options: {}
-  });
-
-  var ctx = document.getElementById('myChartTir').getContext('2d');
-  var chart = new Chart(ctx, {
-      // The type of chart we want to create
-      type: 'line',
-
-      // The data for our dataset
-      data: {
-          //labels: ["January", "February", "March", "April", "May", "June", "July"],
-          labels : otimizacao.numeroPaineis,
-          datasets: [{
-              label: "Número de painéis x Taxa Interna de Retorno",
-              backgroundColor: 'rgb(40, 255, 100)',
-              borderColor: 'rgb(40, 255, 100)',
-              //data: [0, 10, 5, 2, 20, 30, 45],
-              data : otimizacao.tir,
-          }]
-      },
-
-      // Configuration options go here
-      options: {}
-  });
-
-
-
 
 function repasseDadosVpl(){
 
-
     for(i=0;i<otimizacao.numeroPaineis.length;i++){
       otimizacao.vpl[i] = otimizacao.todosVpl[i];
-      otimizacao.payback[i] = otimizacao.todosPayback[i];
-      otimizacao.paybackDescontado[i] = otimizacao.todosPaybackDescontado[i];
-      otimizacao.tir[i] = tir(otimizacao.todosTir[i]);
-
     }
 
 }

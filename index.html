@@ -250,8 +250,8 @@
                 </div>
               </div>
             <br>
-    <!-- <div id="div1" style="display:none" class="row"><button id="button-sistema" class="btn res btn-danger btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalSistema">Sistema</button><button  id="button-arranjo" class="res btn btn-warning btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalArranjo">Arranjo</button></div><br> -->
-    <div id="div2" style="display:none" class="row"><button id="button-tutorial" class="btn res btn-info btn-responsive col-xs-6 col-md-6 col-sm-6 col-lg-6" data-toggle="modal" data-target="#myModalEquipamentos">Tutorial</button><button id="button-analise" class="res btn btn-success btn-responsive col-xs-6 col-md-6 col-sm-6 col-lg-6" data-toggle="modal" data-target="#myModalAnalise" onclick="graphVpl()">Análise de Investimentos</button></div><br>
+    <div id="div1" style="display:none" class="row"><button id="button-sistema" class="btn res btn-danger btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalSistema">Sistema</button><button  id="button-arranjo" class="res btn btn-warning btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalArranjo">Arranjo</button></div><br>
+    <div id="div2" style="display:none" class="row"><button id="button-tutorial" class="btn res btn-info btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalEquipamentos">Tutorial</button><button id="button-analise" class="res btn btn-success btn-responsive col-xs-6 col-md-6 col-sm-12 col-lg-6" data-toggle="modal" data-target="#myModalAnalise" onclick="graphVpl()">Análise de Investimentos</button></div><br>
     <div class="print" id = "resultado">
       <!-- aqui vai o resultado do dimensionamento -->
     </div>
@@ -295,6 +295,76 @@
               <button type="button" class="btn btn-default" data-dismiss="modal" >Fechar</button>
             </div>
           </div>
+          </div>
+        </div>
+      </div>
+      <!-- Modal Sistema -->
+      <div class="modal fade" id="myModalSistema" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              <h4 class="modal-title" id="myModalLabel">Dados do sistema</h4>
+            </div>
+            <div class="modal-body">
+              <div id="consumo-mensal"></div>
+              <div id="consumo-diario"></div>
+              <div id="horas-de-sol"></div>
+              <div id="pot-necessaria"></div>
+              <div id="pot-sistema"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Modal Arranjo -->
+      <div class="modal fade" id="myModalArranjo" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              <h4 class="modal-title" id="myModalLabel">Arranjo dos panéis</h4>
+            </div>
+            <div class="modal-body" id="arranjo-pdf">
+              <div id="numero-paineis"></div>
+              <div id="numero-inversores1"></div>
+              <div id="numero-inversores3"></div>
+              <div id="paineis-serie"></div>
+              <div id="horas-de-sol"></div>
+              <div id="pot-necessaria"></div>
+              <div id="pot-sistema"></div>
+              <!-- <br>Número de painéis decimal:"+numPaineisDecimal+</br> -->
+              <div id="paineis-serie"></div>
+              <div id="paineis-paralelo"></div>
+              <div id="pot-arranjo"></div>
+              <div id="arranjo-imagem"><img src='imagens/paineis.png' class='img-responsive center-block' alt='tabela'></div>
+              <div>Desse modo:</div>
+              <div id="v-max"></div>
+              <div id="v-min"></div>
+              <div id="paineis-paralelo"></div>
+              <div id="corrente-arranjo"></div>
+              <br><strong>Painel</strong></br>
+              <div id="painel-imagem"></div>
+              <div id="painel-nome"></div>
+              <div id="potencia-painel"></div>
+              <div id="vmax-painel"></div>
+              <div id="vmin-painel"></div>
+              <div id="corrente-painel"></div>
+              <br><strong>Inversor</strong></br>
+              <div id="inversor-imagem"></div>
+              <div id="inversor-nome"></div>
+              <div id="inversor-max-pot-entrada"></div>
+              <div id="inversor-tensao-max-entrada"></div>
+              <div id="inversor-mppt"></div>
+              <div id="tensao-min-inicializacao"></div>
+              <div id="inversor-corrente-entrada"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-info btn-responsive"  id="go" onclick="exportarArranjo()">Exportar PDF</button>
+              <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+            </div>
           </div>
         </div>
       </div>
@@ -355,11 +425,6 @@
               <div><a href="#topo"  style="text-decoration:none" id="determinacao-financeiro"><strong><br><center>Análise de Investimentos</center></strong></a></div>
               <div id="tutorial-financeiro"></div>
               <div id="tutorial-financeiro-2"></div>
-              <div id="tutorial-financeiro-VLP"></div>
-              <div id="tutorial-financeiro-TIR"></div>
-              <div id="tutorial-financeiro-PB"></div>
-              <div id="tutorial-financeiro-PBD"></div>
-              <div id="tutorial-financeiro-final"></div>
               <div id="tutorial-dimensionamento"></div>
             </div>
             <div class="modal-footer">
@@ -377,18 +442,18 @@
               <h4 class="modal-title" id="myModalLabel">Análise de Investimentos</h4>
             </div>
             <div class="modal-body" id="inverstimento-pdf">
-              <div id="vida-util"></div>
-              <div id="preco-paineis"></div>
-              <div id="preco-inversores"></div>
+              <div id="custo-total-paineis"></div>
+              <div id="custo-total-inversor"></div>
               <div id="custo-total-estrutura"></div>
               <div id="custo-total-cabeamento"></div>
-              <canvas id="myChartVPL"></canvas><br>
-              <canvas id="myChartTir"></canvas><br>
-              <canvas id="myChartPB"></canvas><br>
-              <canvas id="myChartPBD"></canvas><br>
-              <div> <strong>Observação:</strong> A ausência de valores para o Payback e o Payback Descontado significa que o sistema não se paga dado o número de painéis.</div><br>
+              <div id="custo-total-sistema"></div>
+              <div id="taxa-minima-atratividade"></div>
+              <div id="valor-presente-liquido"></div>
+              <div id="taxa-interna-retorno"></div>
+              <div id="payback"></div>
+              <div id="payback-descontado"></div>
+              <canvas id="myChart"></canvas><br>
             </div>
-
             <div class="modal-footer">
               <button class="btn btn-info btn-responsive"  id="go" onclick="exportarInvestimento()">Exportar PDF</button>
               <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
